@@ -13,8 +13,8 @@ from typing import Dict, List, Optional
 import customtkinter as ctk
 from tkinter import messagebox
 
-import config_store as cs
-from tunnel_manager import MappingTunnel, TunnelError
+from . import config_store as cs
+from .tunnel_manager import MappingTunnel, TunnelError
 
 # ---------- 外观配置 ----------
 ctk.set_appearance_mode("dark")

@@ -14,11 +14,12 @@ from PyInstaller.utils.hooks import collect_data_files
 datas = collect_data_files("customtkinter")
 
 a = Analysis(
-    ["main.py"],
-    pathex=[],
+    ["src/run.py"],                      # 顶层启动器，以包方式 import jumptunnel.main
+    pathex=["src"],                      # 让 src 下的包可被解析
     binaries=[],
     datas=datas,
-    hiddenimports=["customtkinter"],
+    hiddenimports=["customtkinter", "jumptunnel", "jumptunnel.main",
+                   "jumptunnel.config_store", "jumptunnel.tunnel_manager"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

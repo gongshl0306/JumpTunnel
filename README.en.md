@@ -62,7 +62,7 @@ First install [uv](https://docs.astral.sh/uv/), then:
 
 ```bash
 uv sync          # create a venv and install dependencies
-uv run main.py   # launch the app
+uv run jumptunnel   # launch the app
 ```
 
 ### Option 3: Traditional pip
@@ -70,8 +70,8 @@ uv run main.py   # launch the app
 Requires Python 3.10+.
 
 ```bash
-pip install -r requirements.txt
-python main.py
+pip install -e .
+python -m jumptunnel
 ```
 
 You can also just double-click `run.bat` (it installs deps and launches).
@@ -153,15 +153,17 @@ You can also just double-click `build.bat` in the project to do all of the above
 ## Project structure
 
 ```
-main.py              # GUI and entry point
-tunnel_manager.py    # SSH tunnel wrapper (built on sshtunnel)
-config_store.py      # Local storage for profiles and mappings
-pyproject.toml       # uv / dependencies and build config
-requirements.txt     # Dependency list for traditional pip
-build.spec           # PyInstaller build config
-run.bat              # Windows one-click launcher
-build.bat            # Windows one-click build script
-docs/preview.png     # Product screenshot
+src/jumptunnel/          # source package
+├── __main__.py          # enables `python -m jumptunnel`
+├── main.py              # GUI and entry point
+├── tunnel_manager.py    # SSH tunnel wrapper (built on sshtunnel)
+└── config_store.py      # local storage for profiles and mappings
+pyproject.toml           # uv / dependencies and build config
+requirements.txt         # dependency list for traditional pip
+build.spec               # PyInstaller build config
+run.bat                  # Windows one-click launcher
+build.bat                # Windows one-click build script
+docs/preview.png         # product screenshot
 ```
 
 ---

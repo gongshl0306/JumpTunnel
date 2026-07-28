@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ========================================
-echo  SSH 端口转发工具 - 启动
+echo  JumpTunnel - 启动
 echo ========================================
 echo.
 
@@ -15,18 +15,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM 安装依赖（已安装会快速跳过）
-echo [1/2] 检查并安装依赖...
-python -m pip install -r requirements.txt
+REM 以可编辑模式安装本项目（含入口命令 jumptunnel）
+echo [1/2] 安装依赖并注册本工具...
+python -m pip install -e .
 if errorlevel 1 (
-    echo [错误] 依赖安装失败，请检查网络或手动执行：pip install -r requirements.txt
+    echo [错误] 安装失败，请检查网络或手动执行：pip install -e .
     pause
     exit /b 1
 )
 
 echo.
 echo [2/2] 启动程序...
-python main.py
+python -m jumptunnel
 
 if errorlevel 1 (
     echo.

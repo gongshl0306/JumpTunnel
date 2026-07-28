@@ -62,7 +62,7 @@ ssh -N -L 10011:172.17.12.22:443 tj
 
 ```bash
 uv sync          # 创建虚拟环境并安装依赖
-uv run main.py   # 启动程序
+uv run jumptunnel   # 启动程序
 ```
 
 ### 方式三：用传统 pip
@@ -70,8 +70,8 @@ uv run main.py   # 启动程序
 需要 Python 3.10+。
 
 ```bash
-pip install -r requirements.txt
-python main.py
+pip install -e .
+python -m jumptunnel
 ```
 
 也可以直接双击 `run.bat`（自动安装依赖并启动）。
@@ -153,15 +153,17 @@ dist/JumpTunnel.exe
 ## 项目结构
 
 ```
-main.py              # 图形界面与程序入口
-tunnel_manager.py    # SSH 隧道封装（基于 sshtunnel）
-config_store.py      # 跳板机档案与映射列表的本地读写
-pyproject.toml       # uv / 依赖与打包配置
-requirements.txt     # 传统 pip 依赖清单
-build.spec           # PyInstaller 打包配置
-run.bat              # Windows 一键启动脚本
-build.bat            # Windows 一键打包脚本
-docs/preview.png     # 产品截图
+src/jumptunnel/          # 源码包
+├── __main__.py          # 支持 python -m jumptunnel 启动
+├── main.py              # 图形界面与程序入口
+├── tunnel_manager.py    # SSH 隧道封装（基于 sshtunnel）
+└── config_store.py      # 跳板机档案与映射列表的本地读写
+pyproject.toml           # uv / 依赖与打包配置
+requirements.txt         # 传统 pip 依赖清单
+build.spec               # PyInstaller 打包配置
+run.bat                  # Windows 一键启动脚本
+build.bat                # Windows 一键打包脚本
+docs/preview.png         # 产品截图
 ```
 
 ---

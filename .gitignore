@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# uv
+.uv-cache/
+
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
+# 构建中间文件
+*.manifest
+
+# 编辑器/工具缓存
+.zcode/

@@ -1,0 +1,29 @@
+[project]
+name = "ssh-forward-tool"
+version = "0.1.0"
+description = "SSH 端口转发 GUI 工具：通过跳板机把内网端口映射到本地"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter>=5.2.0",
+    "sshtunnel>=0.4.0",
+    # sshtunnel 0.4.0 硬编码引用 paramiko.DSSKey，而 paramiko 5.x 已移除 DSS 支持，
+    # 故需锁定 paramiko < 4 以保持兼容。
+    "paramiko>=3.0,<4",
+]
+
+[project.scripts]
+ssh-forward-tool = "main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["main.py", "config_store.py", "tunnel_manager.py"]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.0",
+]

@@ -5,7 +5,7 @@ CustomTkinter 运行时需要从安装目录读取主题 JSON，单文件模式�
 此 spec 通过动态定位 customtkinter 安装路径来收集其资源。
 
 构建：uv run pyinstaller build.spec
-输出：dist/SSHForwardTool.exe
+输出：dist/JumpTunnel.exe
 """
 
 from PyInstaller.utils.hooks import collect_data_files
@@ -34,7 +34,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="SSHForwardTool",
+    name="JumpTunnel",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

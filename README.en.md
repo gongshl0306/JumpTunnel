@@ -1,4 +1,4 @@
-# SSH Port Forwarding Tool
+# JumpTunnel — SSH Port Forwarding Tool
 
 English | **[中文](./README.md)**
 
@@ -52,7 +52,7 @@ This means: through jump host `tj`, map the internal `172.17.12.22:443` to your 
 
 ### Option 1: Use the prebuilt exe (easiest — nothing to install)
 
-Get `SSHForwardTool.exe` and **double-click to run**.
+Get `JumpTunnel.exe` and **double-click to run**.
 
 > The first launch is 1–2 seconds slower (a single-file exe has to self-extract). This is normal.
 
@@ -141,7 +141,7 @@ uv run pyinstaller build.spec --noconfirm
 When done, the single-file exe is at:
 
 ```
-dist/SSHForwardTool.exe
+dist/JumpTunnel.exe
 ```
 
 About 15MB — **copy it to anyone and they can double-click to run it, no Python needed**.

@@ -1,7 +1,7 @@
 [project]
-name = "ssh-forward-tool"
+name = "jumptunnel"
 version = "0.1.0"
-description = "SSH 端口转发 GUI 工具：通过跳板机把内网端口映射到本地"
+description = "JumpTunnel — SSH 端口转发 GUI 工具：通过跳板机把内网端口映射到本地"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ssh-forward-tool = "main:main"
+jumptunnel = "main:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -291,7 +291,7 @@ class MappingRow(ctk.CTkFrame):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("SSH 端口转发工具")
+        self.title("JumpTunnel — SSH 端口转发工具")
         self.geometry("820x720")
         self.minsize(760, 600)
 

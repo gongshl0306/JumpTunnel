@@ -1,4 +1,4 @@
-# SSH 端口转发工具
+# JumpTunnel — SSH 端口转发工具
 
 **[English](./README.en.md)** | 中文
 
@@ -52,7 +52,7 @@ ssh -N -L 10011:172.17.12.22:443 tj
 
 ### 方式一：直接用打包好的 exe（最省事，无需装任何东西）
 
-拿到 `SSHForwardTool.exe`，**双击运行**即可。
+拿到 `JumpTunnel.exe`，**双击运行**即可。
 
 > 首次启动会稍慢 1~2 秒（单文件 exe 需要解压），属正常现象。
 
@@ -141,7 +141,7 @@ uv run pyinstaller build.spec --noconfirm
 打包完成后，单文件 exe 在：
 
 ```
-dist/SSHForwardTool.exe
+dist/JumpTunnel.exe
 ```
 
 约 15MB，**拷给别人双击即可运行，对方无需安装 Python**。

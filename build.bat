@@ -34,6 +34,6 @@ if errorlevel 1 (
 
 echo.
 echo ========================================
-echo  打包完成！exe 位于：dist\SSHForwardTool.exe
+echo  打包完成！exe 位于：dist\JumpTunnel.exe
 echo ========================================
 pause

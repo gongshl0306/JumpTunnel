@@ -6,6 +6,8 @@
 运行：python main.py
 """
 
+import os
+import sys
 import threading
 import webbrowser
 from typing import Dict, List, Optional
@@ -15,6 +17,21 @@ from tkinter import messagebox
 
 from . import config_store as cs
 from .tunnel_manager import MappingTunnel, TunnelError
+
+
+def _resource_path(relative: str) -> str:
+    """定位资源文件：打包后在 PyInstaller 临时目录，开发时相对项目根。
+
+    注意：开发时项目根是 cwd 的上两级（src/jumptunnel/ -> 项目根），
+    打包后资源由 build.spec 的 datas 打进 sys._MEIPASS。
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if base:                          # PyInstaller 单文件 exe 运行时
+        return os.path.join(base, relative)
+    # 开发环境：从本文件回溯到项目根目录
+    here = os.path.dirname(os.path.abspath(__file__))  # .../src/jumptunnel
+    root = os.path.dirname(os.path.dirname(here))      # 项目根
+    return os.path.join(root, relative)
 
 # ---------- 外观配置 ----------
 ctk.set_appearance_mode("dark")
@@ -306,6 +323,16 @@ class App(ctk.CTk):
         self.geometry("820x720")
         self.minsize(760, 600)
 
+        # 设置窗口/任务栏图标
+        ico = _resource_path("docs/logo.ico")
+        if os.path.exists(ico):
+            try:
+                self.iconbitmap(ico)
+                # 让任务栏也显示该图标（而非默认 python 图标）
+                self.after(200, lambda: self._set_taskbar_icon(ico))
+            except Exception:
+                pass
+
         self.config = cs.load_config()
         self.rows: List[MappingRow] = []
 
@@ -316,6 +343,18 @@ class App(ctk.CTk):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._restore_mappings()
+
+    @staticmethod
+    def _set_taskbar_icon(ico_path: str) -> None:
+        """设置 Windows 任务栏图标（需 AppUserModelID，否则显示默认 python 图标）。"""
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("JumpTunnel")
+            # iconbitmap 已设置标题栏图标；任务栏由 AppUserModelID 配合生效
+        except Exception:
+            pass
 
     # ---------- 跳板机配置区 ----------
 

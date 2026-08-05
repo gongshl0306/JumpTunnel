@@ -12,6 +12,8 @@ from PyInstaller.utils.hooks import collect_data_files
 
 # 收集 customtkinter 的全部数据文件（主题 json 等）
 datas = collect_data_files("customtkinter")
+# 打包应用图标，供运行时 _resource_path("docs/logo.ico") 读取
+datas += [("docs/logo.ico", "docs")]
 
 a = Analysis(
     ["src/run.py"],                      # 顶层启动器，以包方式 import jumptunnel.main
@@ -43,5 +45,5 @@ exe = EXE(
     runtime_tmpdir=None,
     console=False,             # GUI 程序，不显示控制台黑窗
     disable_windowed_traceback=False,
-    icon=None,                 # 无图标；如有 .ico 可改为 "app.ico"
+    icon="docs/logo.ico",      # 应用图标
 )

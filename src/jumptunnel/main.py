@@ -82,6 +82,7 @@ class MappingRow(ctk.CTkFrame):
         self.mapping = mapping          # {auto_port, local_port, target_host, target_port, scheme, note}
         self.app = app
         self.tunnel: Optional[MappingTunnel] = None
+        self._busy: bool = False        # 防重入标志：连接/断开进行中
 
         # ---------- 左侧：状态灯 + 本地 URL（可点击） + 目标信息 ----------
         self.left = ctk.CTkFrame(self, fg_color="transparent")
@@ -181,7 +182,7 @@ class MappingRow(ctk.CTkFrame):
         if active:
             self.status_dot.configure(text_color=COLOR_RUNNING)
             self.toggle_btn.configure(text="停止", fg_color="#e67e22", hover_color="#d35400")
-        elif self.tunnel is not None and getattr(self.tunnel, "_errored", False):
+        elif self.tunnel is not None and self.tunnel.errored:
             self.status_dot.configure(text_color=COLOR_ERROR)
             self.toggle_btn.configure(text="启动", fg_color="#27ae60", hover_color="#229954")
         else:
@@ -228,17 +229,23 @@ class MappingRow(ctk.CTkFrame):
 
     def toggle(self) -> None:
         """启动或停止隧道（后台线程，避免阻塞 UI）。"""
+        if self._busy:
+            return  # 防重入：正在连接/断开时忽略重复点击
         if self.tunnel is not None and self.tunnel.is_active():
             self._stop_async()
         else:
             self._start_async()
 
     def _start_async(self) -> None:
+        # 防重入：标记忙碌，禁用按钮，显示「连接中…」
+        self._busy = True
+        self.toggle_btn.configure(text="连接中…", state="disabled", fg_color=COLOR_STOPPED)
         self.app.log(f"正在建立隧道 -> {self.mapping['target_host']}:{self.mapping['target_port']}")
 
         def work():
             jump = self.app.get_jumphost()
             if jump is None:
+                self._finish_busy()
                 return
             try:
                 self.tunnel = MappingTunnel(
@@ -248,30 +255,34 @@ class MappingRow(ctk.CTkFrame):
                     target_port=int(self.mapping["target_port"]),
                     local_port=int(self.mapping["local_port"]) if not self.mapping.get("auto_port") else 0,
                 )
-                port = self.tunnel.start()
-                self.tunnel._errored = False
+                self.tunnel.start()
                 self.app.log(f"隧道已建立：{self.tunnel.info()}")
             except TunnelError as e:
-                if self.tunnel is not None:
-                    self.tunnel._errored = True
                 self.app.log(f"隧道建立失败：{e}")
             except Exception as e:  # noqa
                 self.app.log(f"未知错误：{e}")
             finally:
-                # 回到主线程刷新 UI
-                self.after(0, self._refresh_ui)
-                self.after(0, self.app.refresh_all_rows)
+                self.after(0, self._finish_busy)
 
         threading.Thread(target=work, daemon=True).start()
 
+    def _finish_busy(self) -> None:
+        """回到主线程：解除忙碌状态并刷新 UI。"""
+        self._busy = False
+        self.toggle_btn.configure(state="normal")
+        self._refresh_ui()
+        self.app.refresh_all_rows()
+
     def _stop_async(self) -> None:
+        self._busy = True
+        self.toggle_btn.configure(text="断开中…", state="disabled", fg_color=COLOR_STOPPED)
+
         def work():
             if self.tunnel is not None:
                 info = self.tunnel.info()
                 self.tunnel.stop()
                 self.app.log(f"隧道已停止：{info}")
-            self.after(0, self._refresh_ui)
-            self.after(0, self.app.refresh_all_rows)
+            self.after(0, self._finish_busy)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -339,8 +350,9 @@ class App(ctk.CTk):
         ctk.CTkButton(row1, text="删除档案", width=90, fg_color="#c0392b",
                       hover_color="#922b21",
                       command=self._delete_profile).pack(side="left", padx=4)
-        ctk.CTkButton(row1, text="测试连接", width=90,
-                      command=self._test_connection).pack(side="right", padx=4)
+        self.test_btn = ctk.CTkButton(row1, text="测试连接", width=90,
+                                       command=self._test_connection)
+        self.test_btn.pack(side="right", padx=4)
 
         # 第二行：主机/端口/用户/密码
         row2 = ctk.CTkFrame(box, fg_color="transparent")
@@ -360,8 +372,15 @@ class App(ctk.CTk):
         self.user_entry.pack(side="left", padx=(4, 12))
 
         ctk.CTkLabel(row2, text="密码").pack(side="left")
-        self.pwd_entry = ctk.CTkEntry(row2, width=160, show="*", placeholder_text="password")
-        self.pwd_entry.pack(side="left", padx=(4, 0))
+        self.pwd_entry = ctk.CTkEntry(row2, width=140, show="*", placeholder_text="password")
+        self.pwd_entry.pack(side="left", padx=(4, 4))
+        # 密码显隐切换：默认掩码，点击「显」切换为明文
+        self._pwd_visible = False
+        self.pwd_toggle = ctk.CTkButton(row2, text="显", width=32,
+                                        fg_color="transparent", hover_color=("gray80", "gray30"),
+                                        text_color=("gray30", "gray70"),
+                                        command=self._toggle_pwd_visible)
+        self.pwd_toggle.pack(side="left", padx=(0, 0))
 
         # 恢复上次选中的档案到输入框
         if self.config.get("last_profile"):
@@ -449,15 +468,33 @@ class App(ctk.CTk):
         names = cs.profile_names(self.config)
         self.profile_menu.configure(values=names)
 
+    def _toggle_pwd_visible(self) -> None:
+        """切换密码明文/掩码显示。"""
+        self._pwd_visible = not self._pwd_visible
+        self.pwd_entry.configure(show="" if self._pwd_visible else "*")
+        self.pwd_toggle.configure(text="隐" if self._pwd_visible else "显")
+
+    def _test_connection_error(self, e: Exception) -> str:
+        """把测试连接的异常翻译成中文友好提示。"""
+        msg = str(e).lower()
+        if "auth" in msg or "password" in msg:
+            return "认证失败：用户名或密码错误"
+        if "refused" in msg or "timed out" in msg or "timeout" in msg:
+            return "连接被拒绝或超时：请检查主机和端口"
+        if "getaddrinfo" in msg or "no address" in msg or "name or service" in msg:
+            return "主机名无法解析"
+        return str(e)
+
     def _test_connection(self) -> None:
         data = self._read_jumphost_from_entries()
         if data is None:
             return
+        # 测试中禁用按钮，避免重复点击
+        self.test_btn.configure(state="disabled", text="测试中…")
         self.log(f"测试连接 {data['host']}:{data['port']} ...")
 
         def work():
             try:
-                # 直接用 paramiko 做一次连接握手即可
                 import paramiko
                 client = paramiko.SSHClient()
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -467,7 +504,9 @@ class App(ctk.CTk):
                 client.close()
                 self.log("连接成功 ✓")
             except Exception as e:
-                self.log(f"连接失败：{e}")
+                self.log(f"连接失败：{self._test_connection_error(e)}")
+            finally:
+                self.after(0, lambda: self.test_btn.configure(state="normal", text="测试连接"))
 
         threading.Thread(target=work, daemon=True).start()
 

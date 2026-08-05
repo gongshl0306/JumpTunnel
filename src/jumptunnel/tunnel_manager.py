@@ -21,6 +21,23 @@ class TunnelError(Exception):
     """隧道启停过程中发生的错误。"""
 
 
+def _friendly_error(e: Exception, local_port: int = 0) -> str:
+    """把底层 sshtunnel/paramiko 异常翻译成中文友好提示。"""
+    msg = str(e).lower()
+    if "auth" in msg or "password" in msg:
+        return "认证失败：用户名或密码错误"
+    if "refused" in msg or "timed out" in msg or "timeout" in msg:
+        return "无法连接跳板机：连接被拒绝或超时，请检查主机和端口"
+    if "name or service not known" in msg or "getaddrinfo" in msg or "no address" in msg:
+        return "无法解析跳板机地址：主机名不存在"
+    if "address already in use" in msg or ("98" in msg and "bind" in str(e).lower()):
+        port_info = f"（本地端口 {local_port}）" if local_port else ""
+        return f"本地端口被占用{port_info}：请改用「自动端口」或换一个端口"
+    if "remote" in msg and ("refused" in msg or "connect" in msg):
+        return "跳板机无法连到目标地址：请确认目标 IP 和端口在跳板机上可达"
+    return str(e)
+
+
 class MappingTunnel:
     """一条本地端口 -> 目标 host:port 的转发隧道。"""
 
@@ -48,15 +65,17 @@ class MappingTunnel:
 
         self._tunnel: Optional[SSHTunnelForwarder] = None
         self.actual_local_port: Optional[int] = None  # 启动后填入实际端口
+        self.errored: bool = False  # 正式状态字段，替代 monkey-patch 的 _errored
 
     # ---------- 生命周期 ----------
 
     def start(self) -> int:
-        """启动隧道，返回实际绑定的本地端口。失败抛 TunnelError。"""
+        """启动隧道，返回实际绑定的本地端口。失败抛 TunnelError（含友好提示）。"""
         if self._tunnel is not None and self._tunnel.is_active:
             # 已经在运行，直接返回当前端口
             return self.actual_local_port or 0
 
+        self.errored = False
         try:
             self._tunnel = SSHTunnelForwarder(
                 (self.jumphost, int(self.jumpport)),
@@ -67,9 +86,12 @@ class MappingTunnel:
                 set_keepalive=30,  # 30s 发 keepalive，防止长连接被踢
             )
             self._tunnel.start()
+        except TunnelError:
+            raise
         except (SSHException, BaseSSHTunnelForwarderError, socket.error, ValueError) as e:
             self._tunnel = None
-            raise TunnelError(str(e)) from e
+            self.errored = True
+            raise TunnelError(_friendly_error(e, self.local_port)) from e
 
         # local_bind_ports 是 sshtunnel 维护的实际端口列表
         ports = getattr(self._tunnel, "local_bind_ports", [])

@@ -13,10 +13,28 @@ import webbrowser
 from typing import Dict, List, Optional
 
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import TclError, messagebox
 
 from . import config_store as cs
 from .tunnel_manager import MappingTunnel, TunnelError
+
+
+def _set_if_changed(widget: ctk.CTkBaseClass, **kwargs) -> None:
+    """仅当属性值真正变化时才 configure。
+
+    CustomTkinter 的 configure() 不做去重：即使值与当前相同也会触发
+    整个画布重绘（_draw）。状态刷新、批量刷新时大量调用是 UI 卡顿的
+    主要来源，先逐项与 cget 比较可跳过无效重绘。
+    """
+    changed = {}
+    for key, value in kwargs.items():
+        try:
+            if widget.cget(key) != value:
+                changed[key] = value
+        except (KeyError, ValueError, TclError):
+            changed[key] = value
+    if changed:
+        widget.configure(**changed)
 
 
 def _resource_path(relative: str) -> str:
@@ -57,8 +75,14 @@ F_STATUS    = ("Noto Sans SC", 16)   # 状态圆点
 F_MENU      = ("Noto Sans SC", 13)   # 下拉框
 F_MONO      = ("Cascadia Code", 12)  # 等宽：URL/命令/日志
 
-# 协议默认推断：常见 https 端口
+# 协议默认推断：常见 https / http 端口（模块级常量，避免每次按键重建集合）
 HTTPS_PORTS = {"443", "8443"}
+HTTP_PORTS = {"80", "8080", "8000"}
+
+# 日志刷新：短时间内多条日志合并为一次写入，减少文本框重绘次数；
+# 行数超过上限后丢弃最早的，防止日志越长、文本框越卡
+LOG_FLUSH_DELAY_MS = 80
+LOG_MAX_LINES = 400
 
 # 常见 tcp 服务端口 -> 协议：用于自动推断非 Web 端口
 TCP_SERVICE_PORTS = {
@@ -153,6 +177,7 @@ class MappingRow(ctk.CTkFrame):
                                      command=self.delete)
         self.del_btn.pack(side="left", padx=3)
 
+        self._open_btn_visible = True   # 「打开」按钮当前是否已 pack
         self._refresh_ui()
 
     # ---------- UI 辅助 ----------
@@ -194,22 +219,27 @@ class MappingRow(ctk.CTkFrame):
             return tmpl.format(port=port)
 
     def _refresh_ui(self) -> None:
-        """根据隧道状态刷新本行显示。"""
+        """根据隧道状态刷新本行显示（值未变化的属性不重绘）。"""
         active = self.tunnel is not None and self.tunnel.is_active()
         if active:
-            self.status_dot.configure(text_color=COLOR_RUNNING)
-            self.toggle_btn.configure(text="停止", fg_color="#e67e22", hover_color="#d35400")
-        elif self.tunnel is not None and self.tunnel.errored:
-            self.status_dot.configure(text_color=COLOR_ERROR)
-            self.toggle_btn.configure(text="启动", fg_color="#27ae60", hover_color="#229954")
+            _set_if_changed(self.status_dot, text_color=COLOR_RUNNING)
+            _set_if_changed(self.toggle_btn, text="停止",
+                            fg_color="#e67e22", hover_color="#d35400")
         else:
-            self.status_dot.configure(text_color=COLOR_STOPPED)
-            self.toggle_btn.configure(text="启动", fg_color="#27ae60", hover_color="#229954")
-        self.url_label.configure(text=self._local_url())
+            if self.tunnel is not None and self.tunnel.errored:
+                _set_if_changed(self.status_dot, text_color=COLOR_ERROR)
+            else:
+                _set_if_changed(self.status_dot, text_color=COLOR_STOPPED)
+            _set_if_changed(self.toggle_btn, text="启动",
+                            fg_color="#27ae60", hover_color="#229954")
+        _set_if_changed(self.url_label, text=self._local_url())
         # tcp/非 web 协议隐藏「打开」按钮（无浏览器语义），保留「复制」
         if self._is_web_scheme():
-            self.open_btn.pack(side="left", padx=3)
-        else:
+            if not self._open_btn_visible:
+                self._open_btn_visible = True
+                self.open_btn.pack(side="left", padx=3)
+        elif self._open_btn_visible:
+            self._open_btn_visible = False
             self.open_btn.pack_forget()
 
     # ---------- 操作 ----------
@@ -254,16 +284,16 @@ class MappingRow(ctk.CTkFrame):
             self._start_async()
 
     def _start_async(self) -> None:
-        # 防重入：标记忙碌，禁用按钮，显示「连接中…」
+        # 防重入：标记忙碌，禁用按钮，显示「连接中…」。
+        # 跳板机信息在主线程读取校验（可能弹提示框），避免在后台线程碰 UI
+        jump = self.app.get_jumphost()
+        if jump is None:
+            return
         self._busy = True
         self.toggle_btn.configure(text="连接中…", state="disabled", fg_color=COLOR_STOPPED)
         self.app.log(f"正在建立隧道 -> {self.mapping['target_host']}:{self.mapping['target_port']}")
 
         def work():
-            jump = self.app.get_jumphost()
-            if jump is None:
-                self._finish_busy()
-                return
             try:
                 self.tunnel = MappingTunnel(
                     jumphost=jump["host"], jumpport=jump["port"],
@@ -284,11 +314,10 @@ class MappingRow(ctk.CTkFrame):
         threading.Thread(target=work, daemon=True).start()
 
     def _finish_busy(self) -> None:
-        """回到主线程：解除忙碌状态并刷新 UI。"""
+        """回到主线程：解除忙碌状态并刷新本行。"""
         self._busy = False
-        self.toggle_btn.configure(state="normal")
+        _set_if_changed(self.toggle_btn, state="normal")
         self._refresh_ui()
-        self.app.refresh_all_rows()
 
     def _stop_async(self) -> None:
         self._busy = True
@@ -312,13 +341,16 @@ class MappingRow(ctk.CTkFrame):
                 pass
 
     def delete(self) -> None:
-        self.stop()
+        # 行先从 UI 移除，隧道由 App 在后台线程停止（网络 IO，不阻塞界面）
         self.app.remove_row(self)
 
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
+        # 构建期间隐藏窗口：避免逐个布局触发的多轮重排与白屏闪烁，
+        # 全部就绪后一次性显示
+        self.withdraw()
         self.title("JumpTunnel — SSH 端口转发工具")
         self.geometry("820x720")
         self.minsize(760, 600)
@@ -343,6 +375,7 @@ class App(ctk.CTk):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._restore_mappings()
+        self.deiconify()
 
     @staticmethod
     def _set_taskbar_icon(ico_path: str) -> None:
@@ -617,24 +650,23 @@ class App(ctk.CTk):
         """根据目标端口自动推断协议。
 
         Web 端口 -> http/https；已知 tcp 服务端口 -> 对应服务名；
-        其它 -> tcp（通用）。
+        其它 -> tcp（通用）。协议没变化时不重设下拉框，减少无谓刷新。
         """
         p = self.target_port_entry.get().strip()
         if not p:
             return
         if p in HTTPS_PORTS:
-            self.scheme_menu.set("https")
-        elif p in {"80", "8080", "8000"}:
-            self.scheme_menu.set("http")
+            scheme = "https"
+        elif p in HTTP_PORTS:
+            scheme = "http"
         elif p in TCP_SERVICE_PORTS:
             svc = TCP_SERVICE_PORTS[p]
             # 只在下拉菜单里有该服务名时才选它，否则回退 tcp
-            if svc in self.scheme_menu.cget("values"):
-                self.scheme_menu.set(svc)
-            else:
-                self.scheme_menu.set("tcp")
+            scheme = svc if svc in self.scheme_menu.cget("values") else "tcp"
         else:
-            self.scheme_menu.set("tcp")
+            scheme = "tcp"
+        if self.scheme_menu.get() != scheme:
+            self.scheme_menu.set(scheme)
 
     def _add_mapping(self) -> None:
         th = self.target_host_entry.get().strip()
@@ -706,12 +738,13 @@ class App(ctk.CTk):
         row.destroy()
         self._persist_mappings()
         self.log("已删除该映射")
-
-    def refresh_all_rows(self) -> None:
-        for r in self.rows:
-            r._refresh_ui()
+        # 隧道停止涉及网络 IO，放后台线程执行，避免界面卡住
+        threading.Thread(target=row.stop, daemon=True).start()
 
     def _start_all(self) -> None:
+        # 先校验一次跳板机信息，避免每行启动都重复弹提示框
+        if self.rows and self.get_jumphost() is None:
+            return
         for r in self.rows:
             if not (r.tunnel and r.tunnel.is_active()):
                 r._start_async()
@@ -732,19 +765,38 @@ class App(ctk.CTk):
         self.log_box = ctk.CTkTextbox(box, height=90, state="disabled",
                                       font=F_MONO)
         self.log_box.pack(fill="x", padx=12, pady=(0, 10))
+        # 待写入的日志缓冲与已调度的刷新回调（None 表示没有待执行的刷新）
+        self._log_buffer: List[str] = []
+        self._log_flush_job: Optional[str] = None
 
     def log(self, msg: str) -> None:
-        """线程安全地追加日志。"""
-        def _do():
-            self.log_box.configure(state="normal")
-            self.log_box.insert("end", msg + "\n")
-            self.log_box.see("end")
-            self.log_box.configure(state="disabled")
-        # 在主线程执行
-        try:
-            self.after(0, _do)
-        except RuntimeError:
-            pass  # 窗口已关闭
+        """线程安全地追加日志。
+
+        消息先进缓冲，合并 LOG_FLUSH_DELAY_MS 内的多条为一次文本框写入，
+        避免「全部启动」等批量操作时逐条触发布局与重绘。
+        """
+        self._log_buffer.append(msg)
+        if self._log_flush_job is None:
+            try:
+                self._log_flush_job = self.after(LOG_FLUSH_DELAY_MS, self._flush_log)
+            except RuntimeError:
+                self._log_buffer.clear()  # 窗口已关闭
+
+    def _flush_log(self) -> None:
+        self._log_flush_job = None
+        if not self._log_buffer:
+            return
+        text = "\n".join(self._log_buffer) + "\n"
+        self._log_buffer.clear()
+        self.log_box.configure(state="normal")
+        self.log_box.insert("end", text)
+        # 限制日志行数：行数无限增长会让 insert/see 越来越慢。
+        # index 返回 "行.列"，行号比内容行数大 1（含 Tk 末尾隐含行）
+        end_line = int(self.log_box.index("end-1c").split(".")[0])
+        if end_line - 1 > LOG_MAX_LINES:
+            self.log_box.delete("1.0", f"{end_line - LOG_MAX_LINES}.0")
+        self.log_box.see("end")
+        self.log_box.configure(state="disabled")
 
     # ---------- 公共辅助 ----------
 
@@ -767,11 +819,27 @@ class App(ctk.CTk):
             self._append_row(dict(m))  # 拷贝，避免互相影响
 
     def _on_close(self) -> None:
-        """退出前停止所有隧道并保存。"""
-        for r in self.rows:
-            r.stop()
+        """退出：先隐藏窗口（体感立即关闭），隧道在后台线程停止。
+
+        SSH 连接关闭是网络 IO，同步等待会让界面冻结；后台停完再销毁窗口，
+        并设兜底定时器防止个别连接关闭卡住导致进程不退出。
+        """
+        self.withdraw()
         self._persist_mappings()
-        self.destroy()
+
+        def work():
+            for r in self.rows:
+                r.stop()
+            self.after(0, self._final_destroy)
+
+        threading.Thread(target=work, daemon=True).start()
+        self.after(3000, self._final_destroy)  # 兜底：最多等 3 秒强制退出
+
+    def _final_destroy(self) -> None:
+        try:
+            self.destroy()
+        except Exception:
+            pass  # 已销毁（mainloop 退出后兜底回调不会执行，双保险）
 
 
 def main() -> None:

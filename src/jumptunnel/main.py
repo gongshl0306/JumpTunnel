@@ -348,9 +348,9 @@ class MappingRow(ctk.CTkFrame):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        # 构建期间隐藏窗口：避免逐个布局触发的多轮重排与白屏闪烁，
-        # 全部就绪后一次性显示
-        self.withdraw()
+        # 注意：不要在 mainloop 前调用 withdraw/deiconify 来隐藏构建过程。
+        # CTk 内部记录「首次显示前 withdraw 过」后，mainloop 启动时不会
+        # 自动恢复窗口显示，导致窗口闪现后永久隐藏（看似闪退）。
         self.title("JumpTunnel — SSH 端口转发工具")
         self.geometry("820x720")
         self.minsize(760, 600)
@@ -375,7 +375,6 @@ class App(ctk.CTk):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._restore_mappings()
-        self.deiconify()
 
     @staticmethod
     def _set_taskbar_icon(ico_path: str) -> None:

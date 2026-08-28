@@ -8,4 +8,17 @@ import 包内的 jumptunnel.main，从而让包内相对导入正常工作。
 from jumptunnel.main import main
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        # GUI 程序（console=False）崩溃时无任何输出，把堆栈写到
+        # exe 旁边的 crash.log 方便定位闪退原因
+        import os
+        import sys
+        import traceback
+
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        log_path = os.path.join(exe_dir, "crash.log")
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(traceback.format_exc())
+        raise

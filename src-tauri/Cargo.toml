@@ -1,0 +1,38 @@
+[package]
+name = "jumptunnel"
+version = "0.2.0"
+description = "JumpTunnel — SSH 端口转发工具（Rust + Tauri 版）"
+authors = ["gongshl"]
+edition = "2021"
+
+[lib]
+name = "jumptunnel_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+russh = "0.46"
+russh-keys = "0.46"
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+anyhow = "1"
+dirs = "6"
+log = "0.4"
+env_logger = "0.11"
+futures = "0.3"
+tokio-util = "0.7"
+async-trait = "0.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+panic = "abort"

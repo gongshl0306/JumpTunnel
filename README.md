@@ -52,29 +52,18 @@ ssh -N -L 10011:172.17.12.22:443 tj
 
 ### 方式一：直接用打包好的 exe（最省事，无需装任何东西）
 
-拿到 `JumpTunnel.exe`，**双击运行**即可。
+拿到 `JumpTunnel.exe`（或 NSIS 安装包 `JumpTunnel_0.2.0_x64-setup.exe`），**双击运行**即可。
 
-> 首次启动会稍慢 1~2 秒（单文件 exe 需要解压），属正常现象。
+> 首次启动约 0.5 秒，无需解压。
 
-### 方式二：用 uv 运行（推荐开发用）
+### 方式二：开发模式运行
 
-先安装 [uv](https://docs.astral.sh/uv/)，然后：
-
-```bash
-uv sync          # 创建虚拟环境并安装依赖
-uv run jumptunnel   # 启动程序
-```
-
-### 方式三：用传统 pip
-
-需要 Python 3.10+。
+需要 [Rust](https://rustup.rs/)、[Node.js](https://nodejs.org/) 和 [cargo-tauri](https://tauri.app/start/prerequisites/)。
 
 ```bash
-pip install -e .
-python -m jumptunnel
+cd src-tauri
+cargo tauri dev
 ```
-
-也可以直接双击 `run.bat`（自动安装依赖并启动）。
 
 ---
 
@@ -119,7 +108,9 @@ python -m jumptunnel
 
 所有配置（跳板机档案、映射列表）保存在本地：
 
-- **Windows**：`C:\Users\<你的用户名>\.ssh_forward_tool\config.json`
+- **Windows**：`%APPDATA%\com.jumptunnel.app\config.json`
+
+> 首次启动会自动从旧版路径 `~\.ssh_forward_tool\config.json` 导入配置（如果存在）。
 
 ⚠️ **安全提示**：跳板机密码以**明文**存在这个文件里（为了能自动恢复）。
 请确保该文件不被他人读取；介意的话可手动清空 `password` 字段（但每次启动要重新输密码）。
@@ -128,42 +119,49 @@ python -m jumptunnel
 
 ## 打包成 exe（分发给别人）
 
-项目已配置好 `build.spec`。推荐用 uv 环境：
-
 ```bash
-# 1. 准备环境（首次）
-uv sync
-
-# 2. 打包
-uv run pyinstaller build.spec --noconfirm
+cd src-tauri
+cargo tauri build
 ```
 
-打包完成后，单文件 exe 在：
+打包完成后：
 
-```
-dist/JumpTunnel.exe
-```
+- **NSIS 安装包**：`src-tauri/target/release/bundle/nsis/JumpTunnel_0.2.0_x64-setup.exe`（约 2 MB）
+- **免安装 exe**：`src-tauri/target/release/jumptunnel.exe`（约 5 MB）
 
-约 15MB，**拷给别人双击即可运行，对方无需安装 Python**。
-
-也可以直接双击项目里的 `build.bat` 一键完成上述步骤。
+拷给别人双击即可运行，对方无需安装任何运行时（Windows 10 1803+ / Windows 11 自带 WebView2）。
 
 ---
 
 ## 项目结构
 
 ```
-src/jumptunnel/          # 源码包
-├── __main__.py          # 支持 python -m jumptunnel 启动
-├── main.py              # 图形界面与程序入口
-├── tunnel_manager.py    # SSH 隧道封装（基于 sshtunnel）
-└── config_store.py      # 跳板机档案与映射列表的本地读写
-pyproject.toml           # uv / 依赖与打包配置
-requirements.txt         # 传统 pip 依赖清单
-build.spec               # PyInstaller 打包配置
-run.bat                  # Windows 一键启动脚本
-build.bat                # Windows 一键打包脚本
-docs/preview.png         # 产品截图
+src-tauri/               # Rust 后端（Tauri 2）
+├── src/
+│   ├── main.rs          # 入口
+│   ├── lib.rs           # 应用组装：窗口、插件、命令注册、退出清理
+│   ├── commands.rs      # 全部 #[tauri::command]（IPC 入口）
+│   ├── config.rs        # 配置读写 + 旧版迁移
+│   ├── events.rs        # 前端事件定义
+│   └── tunnel/
+│       ├── mod.rs       # TunnelManager：隧道状态机与生命周期
+│       └── forward.rs   # russh：连接、认证、本地转发循环
+├── tauri.conf.json      # 窗口、图标、打包配置
+├── capabilities/        # 权限声明
+└── Cargo.toml
+
+frontend/                # 前端（React 18 + TypeScript + Vite + Tailwind）
+├── src/
+│   ├── App.tsx          # 主界面布局 + 事件订阅
+│   ├── components/      # JumphostPanel / MappingForm / MappingRow / LogPanel
+│   ├── stores.ts        # zustand 全局状态
+│   ├── ipc.ts           # invoke 封装与类型
+│   └── lib.ts           # 协议推断与连接命令模板
+└── package.json
+
+dev-frontend.mjs         # 跨平台启动前端 dev server
+build-frontend.mjs       # 跨平台构建前端
+docs/tauri-refactor-plan.md  # 重构计划
 ```
 
 ---
@@ -186,10 +184,13 @@ A：点「复制」拿到连接命令（比如 `ssh root@localhost -p 10022`）�
 
 ## 技术说明
 
-- 用 Python + [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 做图形界面。
-- 用 [sshtunnel](https://github.com/pahaz/sshtunnel)（基于 paramiko）在代码内完成密码登录与端口转发。
-  Windows 自带的 `ssh.exe` 不接受命令行明文密码、本机也没有 `plink`，所以采用库方案以可靠支持密码认证。
-- 自动端口通过绑定本地端口 `0` 实现，由操作系统分配空闲端口，隧道启动后读取实际端口。
+- **后端**：Rust + [Tauri 2](https://tauri.app/)。SSH 隧道用 [russh](https://github.com/russh/russh)（纯 Rust + tokio 异步）在代码内完成密码登录与端口转发。
+  Windows 自带的 `ssh.exe` 不接受命令行明文密码，所以采用库方案以可靠支持密码认证。
+- **前端**：React 18 + TypeScript + Vite + Tailwind CSS。深色主题，现代卡片式 UI。
+- **架构**：Rust 后端是唯一事实源。每条映射对应一个 tokio 任务，内部维护状态机（`Stopped → Connecting → Running → Error`），状态变化与日志通过 Tauri 事件推给前端，前端纯渲染。
+- **自动端口**：通过绑定本地端口 `0` 实现，由操作系统分配空闲端口，隧道启动后读取实际端口。
+- **单实例**：`tauri-plugin-single-instance` 防止双开导致端口抢占。
+- **退出清理**：主窗口关闭时自动停止所有隧道。
 
 ---
 

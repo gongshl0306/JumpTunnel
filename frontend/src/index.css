@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", ui-monospace, Consolas, monospace;
+
+  /* 深色主题（默认） */
+  --color-bg: #16171d;
+  --color-surface: #1f2028;
+  --color-surface-2: #262833;
+  --color-border: #2e303a;
+  --color-text: #e5e7eb;
+  --color-text-dim: #9ca3af;
+  --color-accent: #3498db;
+  --color-accent-hover: #2f89c5;
+  --color-success: #2ecc71;
+  --color-success-hover: #27ae60;
+  --color-warning: #e67e22;
+  --color-warning-hover: #d35400;
+  --color-danger: #c0392b;
+  --color-danger-hover: #922b21;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* 细滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3d404d;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- 通用控件 ---------- */
+
+.btn {
+  @apply h-8 rounded-md bg-surface-2 px-3 text-[13px] transition-colors hover:bg-border disabled:cursor-not-allowed disabled:opacity-50;
+}
+.btn-success {
+  @apply bg-success hover:bg-success-hover;
+}
+.btn-warning {
+  @apply bg-warning hover:bg-warning-hover;
+}
+.btn-danger {
+  @apply bg-danger hover:bg-danger-hover;
+}
+.btn-ghost {
+  @apply bg-transparent hover:bg-border;
+}
+
+.input {
+  @apply h-8 rounded-md border border-border bg-surface-2 px-2 text-[13px] outline-none disabled:opacity-50;
+}
+.input::placeholder {
+  color: color-mix(in srgb, var(--color-text-dim) 60%, transparent);
+}
+.input:focus {
+  @apply border-accent;
+}

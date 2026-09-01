@@ -19,6 +19,14 @@ export function JumphostPanel({ onJumphostChange }: Props) {
 
   const profiles = config.profiles
 
+  // 挂载时加载上次选中的档案，否则输入框为空、无法启动隧道
+  useEffect(() => {
+    if (config.lastProfile) {
+      loadProfile(config.lastProfile)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 输入变化时上报给 App（供「全部启动」与每行启动使用）
   useEffect(() => {
     const portNum = parseInt(port.trim() || '22', 10)

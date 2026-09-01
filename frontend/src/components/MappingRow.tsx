@@ -33,7 +33,7 @@ export function MappingRow({ mapping, jumphost }: Props) {
       await copy()
       return
     }
-    if (port === null) {
+    if (!active) {
       addLog({ ts: Date.now(), level: 'info', msg: '请先启动该映射再打开 URL' })
       return
     }
@@ -42,7 +42,7 @@ export function MappingRow({ mapping, jumphost }: Props) {
   }
 
   const copy = async () => {
-    if (port === null) {
+    if (!active) {
       addLog({ ts: Date.now(), level: 'info', msg: '请先启动该映射再复制' })
       return
     }

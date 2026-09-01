@@ -18,7 +18,10 @@ use forward::{ForwardHandle, Jumphost, start_forward};
 pub enum TunnelStatus {
     Stopped,
     Connecting,
-    Running { actual_port: u16 },
+    Running {
+        #[serde(rename = "actualPort")]
+        actual_port: u16,
+    },
     Error { message: String },
 }
 

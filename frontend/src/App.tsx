@@ -19,17 +19,29 @@ export default function App() {
     void init()
   }, [init])
 
-  // 订阅后端事件
+  // 订阅后端事件（用 unlisten 管理生命周期，避免 StrictMode 下重复订阅）
   useEffect(() => {
-    const un1 = listen<TunnelStatusEvent>('tunnel-status', (e) => {
+    let unlisten1: (() => void) | undefined
+    let unlisten2: (() => void) | undefined
+    let cancelled = false
+
+    listen<TunnelStatusEvent>('tunnel-status', (e) => {
       setTunnelStatus(e.payload.id, e.payload.status)
+    }).then((u) => {
+      if (cancelled) u()
+      else unlisten1 = u
     })
-    const un2 = listen<LogEvent>('log', (e) => {
+    listen<LogEvent>('log', (e) => {
       addLog(e.payload)
+    }).then((u) => {
+      if (cancelled) u()
+      else unlisten2 = u
     })
+
     return () => {
-      void un1.then((f) => f())
-      void un2.then((f) => f())
+      cancelled = true
+      unlisten1?.()
+      unlisten2?.()
     }
   }, [setTunnelStatus, addLog])
 

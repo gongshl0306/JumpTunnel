@@ -62,6 +62,7 @@ export function localDisplay(
   scheme: string,
   port: number | null,
   jumphost: { host: string; port: number; username: string } | null,
+  targetHost: string,
 ): string {
   if (isWebScheme(scheme)) {
     if (!port) return `${scheme}://localhost:（待启动，自动分配端口）`
@@ -70,10 +71,11 @@ export function localDisplay(
     }
     return `${scheme}://localhost:${port}`
   }
-  // ssh 直接连跳板机，不走本地转发（避免二次输密码）
+  // ssh 用 ProxyJump 通过跳板机连目标，避免二次输密码
+  // 格式：ssh -J 跳板机用户@跳板机:跳板机端口 目标用户@目标IP
   if (scheme === 'ssh') {
     if (jumphost) {
-      return `ssh -p ${jumphost.port} ${jumphost.username}@${jumphost.host}`
+      return `ssh -J ${jumphost.username}@${jumphost.host}:${jumphost.port} root@${targetHost}`
     }
     return 'ssh（未配置跳板机）'
   }

@@ -27,10 +27,9 @@ export const SCHEMES = [
   'mongodb',
 ] as const
 
-// 各 tcp 服务对应的本地连接命令模板（{port} 占位）
-// ssh 特殊处理：直接连跳板机，不走本地转发（避免二次输密码）
+// 各 tcp 服务对应的本地连接命令模板（{port}/{user} 占位）
+// ssh 在 localDisplay 中单独处理（连本地映射端口）
 const TCP_COMMAND_TEMPLATES: Record<string, string> = {
-  ssh: '',
   mysql: 'mysql -h localhost -P {port} -u root -p',
   redis: 'redis-cli -h localhost -p {port}',
   postgres: 'psql -h localhost -p {port} -U postgres',
@@ -61,8 +60,7 @@ export function guessScheme(port: string): string {
 export function localDisplay(
   scheme: string,
   port: number | null,
-  jumphost: { host: string; port: number; username: string } | null,
-  targetHost: string,
+  targetUser: string,
 ): string {
   if (isWebScheme(scheme)) {
     if (!port) return `${scheme}://localhost:（待启动，自动分配端口）`
@@ -71,16 +69,14 @@ export function localDisplay(
     }
     return `${scheme}://localhost:${port}`
   }
-  // ssh 用 ProxyJump 通过跳板机连目标，避免二次输密码
-  // 格式：ssh -J 跳板机用户@跳板机:跳板机端口 目标用户@目标IP
+  // ssh：目标 22 端口已映射到本地端口，直接连本地端口即可，
+  // 输入的是目标机器的密码（跳板机认证在建隧道时已自动完成）
   if (scheme === 'ssh') {
-    if (jumphost) {
-      return `ssh -J ${jumphost.username}@${jumphost.host}:${jumphost.port} root@${targetHost}`
-    }
-    return 'ssh（未配置跳板机）'
+    if (!port) return 'localhost:（待启动，自动分配端口）  [ssh]'
+    return `ssh -p ${port} ${targetUser || 'root'}@localhost`
   }
   if (!port) return `localhost:（待启动，自动分配端口）  [${scheme}]`
   const tmpl = TCP_COMMAND_TEMPLATES[scheme] ?? 'localhost:{port}'
   if (tmpl === '') return `localhost:${port}  [${scheme}]`
-  return tmpl.replace('{port}', String(port))
+  return tmpl.replace('{port}', String(port)).replace('{user}', targetUser || 'root')
 }

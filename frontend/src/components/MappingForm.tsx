@@ -10,6 +10,7 @@ export function MappingForm() {
   const [targetHost, setTargetHost] = useState('')
   const [targetPort, setTargetPort] = useState('')
   const [scheme, setScheme] = useState('http')
+  const [username, setUsername] = useState('root')
   const [autoPort, setAutoPort] = useState(true)
   const [localPort, setLocalPort] = useState('')
   const [note, setNote] = useState('')
@@ -49,6 +50,7 @@ export function MappingForm() {
       targetHost: th,
       targetPort: tpNum,
       scheme,
+      username: scheme === 'ssh' ? username.trim() || 'root' : '',
       note: note.trim(),
     }
     const saved = await api.addMapping(mapping)
@@ -97,6 +99,17 @@ export function MappingForm() {
             ))}
           </select>
         </label>
+        {scheme === 'ssh' && (
+          <label className="flex items-center gap-1">
+            <span className="text-dim">登录用户</span>
+            <input
+              className="input w-20"
+              placeholder="root"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </label>
+        )}
         <button className="btn btn-success ml-auto" onClick={addMapping}>
           ＋ 添加映射
         </button>

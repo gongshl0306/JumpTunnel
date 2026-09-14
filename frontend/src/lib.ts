@@ -28,13 +28,14 @@ export const SCHEMES = [
 ] as const
 
 // 各 tcp 服务对应的本地连接命令模板（{port} 占位）
+// ssh 特殊处理：直接连跳板机，不走本地转发（避免二次输密码）
 const TCP_COMMAND_TEMPLATES: Record<string, string> = {
-  ssh: 'ssh {user}@localhost -p {port}',
+  ssh: '',
   mysql: 'mysql -h localhost -P {port} -u root -p',
   redis: 'redis-cli -h localhost -p {port}',
   postgres: 'psql -h localhost -p {port} -U postgres',
   mongodb: 'mongosh --host localhost --port {port}',
-  mssql: 'sqlcmd -S localhost,{port} -U sa',
+  mssql: 'sqlcmd -S localhost,{port} -U sa -P',
   oracle: 'sqlplus user/pass@localhost:{port}/ORCL',
   kafka: '',
   rabbitmq: '',
@@ -60,7 +61,7 @@ export function guessScheme(port: string): string {
 export function localDisplay(
   scheme: string,
   port: number | null,
-  jumphostUser: string,
+  jumphost: { host: string; port: number; username: string } | null,
 ): string {
   if (isWebScheme(scheme)) {
     if (!port) return `${scheme}://localhost:（待启动，自动分配端口）`
@@ -69,8 +70,15 @@ export function localDisplay(
     }
     return `${scheme}://localhost:${port}`
   }
+  // ssh 直接连跳板机，不走本地转发（避免二次输密码）
+  if (scheme === 'ssh') {
+    if (jumphost) {
+      return `ssh -p ${jumphost.port} ${jumphost.username}@${jumphost.host}`
+    }
+    return 'ssh（未配置跳板机）'
+  }
   if (!port) return `localhost:（待启动，自动分配端口）  [${scheme}]`
   const tmpl = TCP_COMMAND_TEMPLATES[scheme] ?? 'localhost:{port}'
   if (tmpl === '') return `localhost:${port}  [${scheme}]`
-  return tmpl.replace('{port}', String(port)).replace('{user}', jumphostUser || 'root')
+  return tmpl.replace('{port}', String(port))
 }

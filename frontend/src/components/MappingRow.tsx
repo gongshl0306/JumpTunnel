@@ -24,7 +24,7 @@ export function MappingRow({ mapping, jumphost }: Props) {
         ? null
         : mapping.localPort || null
 
-  const display = localDisplay(mapping.scheme, port, jumphost?.username ?? '')
+  const display = localDisplay(mapping.scheme, port, jumphost)
   const web = isWebScheme(mapping.scheme)
 
   const openUrlAction = async () => {

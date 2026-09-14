@@ -20,6 +20,7 @@ export interface Mapping {
   targetHost: string
   targetPort: number
   scheme: string
+  username: string
   note: string
 }
 

@@ -39,6 +39,9 @@ pub struct Mapping {
     pub target_port: u16,
     #[serde(default = "default_scheme")]
     pub scheme: String,
+    /// 目标机器登录用户名（ssh 协议生成命令用，默认 root）
+    #[serde(default)]
+    pub username: String,
     #[serde(default)]
     pub note: String,
 }

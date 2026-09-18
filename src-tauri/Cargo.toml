@@ -1,6 +1,6 @@
 [package]
 name = "jumptunnel"
-version = "0.2.0"
+version = "0.3.0"
 description = "JumpTunnel — SSH 端口转发工具（Rust + Tauri 版）"
 authors = ["gongshl"]
 edition = "2021"

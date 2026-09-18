@@ -33,7 +33,7 @@ export interface Config {
 export type TunnelStatus =
   | { state: 'stopped' }
   | { state: 'connecting' }
-  | { state: 'running'; actualPort: number }
+  | { state: 'running'; actualPort: number; via: string }
   | { state: 'error'; message: string }
 
 export interface TunnelStatusPair {

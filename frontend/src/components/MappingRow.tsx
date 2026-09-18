@@ -104,6 +104,9 @@ export function MappingRow({ mapping, jumphost }: Props) {
         </div>
         <div className="mt-0.5 truncate text-[12px] text-dim">
           → {mapping.targetHost}:{mapping.targetPort}
+          {status.state === 'running' && (
+            <span className="ml-2 text-accent/80">via {status.via}</span>
+          )}
           {mapping.note && <span className="ml-2">| {mapping.note}</span>}
         </div>
       </div>

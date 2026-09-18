@@ -21,6 +21,8 @@ pub enum TunnelStatus {
     Running {
         #[serde(rename = "actualPort")]
         actual_port: u16,
+        /// 实际使用的跳板机，如 simsadmin@10.2.68.128:51730
+        via: String,
     },
     Error { message: String },
 }
@@ -90,7 +92,7 @@ impl TunnelManager {
                 status: TunnelStatus::Stopped,
             });
             // 已在运行：直接返回
-            if let TunnelStatus::Running { actual_port } = &entry.status {
+            if let TunnelStatus::Running { actual_port, .. } = &entry.status {
                 return Ok(*actual_port);
             }
             // 防重入：连接中忽略
@@ -108,7 +110,8 @@ impl TunnelManager {
         match start_forward(jump, mapping).await {
             Ok(handle) => {
                 let port = handle.actual_local_port;
-                let status = TunnelStatus::Running { actual_port: port };
+                let via = format!("{}@{}:{}", jump.username, jump.host, jump.port);
+                let status = TunnelStatus::Running { actual_port: port, via };
                 {
                     let mut entries = self.entries.lock().unwrap();
                     if let Some(entry) = entries.get_mut(id) {

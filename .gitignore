@@ -25,3 +25,9 @@ frontend/dist/
 
 # 编辑器/工具缓存
 .zcode/
+
+# 独立子项目（独立 git 仓库）
+prodlink/
+
+# 临时测试产物
+.playwright-mcp/

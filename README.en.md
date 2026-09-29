@@ -41,9 +41,10 @@ This means: through jump host `tj`, map the internal `172.17.12.22:443` to your 
 | 🔌 **One-click forwarding** | Fill in the jump host and target, click "Start" — password login is handled automatically, no commands needed. |
 | 🔢 **Auto port allocation** | Let the OS pick a free local port (no conflicts), or specify one manually. |
 | 🌐 **Web ports** (http/https) | Generates a clickable local URL — one click opens it in your browser. |
-| 🖥️ **Non-web ports** (ssh/mysql/redis…) | Auto-generates the matching connection command (e.g. `ssh root@localhost -p 10022`), copy it to your clipboard in one click. |
+| 🖥️ **Non-web ports** (ssh/mysql/redis…) | Auto-generates the matching connection command (e.g. `ssh -p 10022 root@localhost`), copy it to your clipboard in one click. |
+| 🧑‍💻 **Per-mapping login user** | Each mapping can specify its own login username (defaults to `root`), which is included in the generated SSH command. |
 | 💾 **Jump-host profiles** | Save commonly used jump hosts as profiles and switch via dropdown — no re-typing. |
-| 📋 **Multi-mapping management** | Each mapping starts/stops independently with a clear status light (🟢running / ⚪stopped / 🔴error). |
+| 📋 **Multi-mapping management** | Each mapping starts/stops independently with a clear status light (🟢running / ⚪stopped / 🔴error); active mappings show which jump host they go through (`via user@host:port`). |
 | 🔄 **Persistent config** | Restores your last jump host and mapping list after restarting. |
 
 ---
@@ -52,29 +53,18 @@ This means: through jump host `tj`, map the internal `172.17.12.22:443` to your 
 
 ### Option 1: Use the prebuilt exe (easiest — nothing to install)
 
-Get `JumpTunnel.exe` and **double-click to run**.
+Get `JumpTunnel.exe` (or the NSIS installer `JumpTunnel_0.3.0_x64-setup.exe`) and **double-click to run**.
 
-> The first launch is 1–2 seconds slower (a single-file exe has to self-extract). This is normal.
+> First launch takes about 0.5 s — no extraction step.
 
-### Option 2: Run with uv (recommended for development)
+### Option 2: Run in dev mode
 
-First install [uv](https://docs.astral.sh/uv/), then:
-
-```bash
-uv sync          # create a venv and install dependencies
-uv run jumptunnel   # launch the app
-```
-
-### Option 3: Traditional pip
-
-Requires Python 3.10+.
+Requires [Rust](https://rustup.rs/), [Node.js](https://nodejs.org/), and [cargo-tauri](https://tauri.app/start/prerequisites/).
 
 ```bash
-pip install -e .
-python -m jumptunnel
+cd src-tauri
+cargo tauri dev
 ```
-
-You can also just double-click `run.bat` (it installs deps and launches).
 
 ---
 
@@ -86,7 +76,7 @@ You can also just double-click `run.bat` (it installs deps and launches).
    Not sure it connects? Hit "Test connection" first.
 
 2. **Add a mapping**
-   In "New mapping", fill in the target IP and target port (the protocol is auto-detected), then click "+ Add mapping".
+   In "New mapping", fill in the target IP, target port (the protocol is auto-detected), and login username (defaults to `root`), then click "+ Add mapping".
    - Check "Auto port" to let the system pick a local port (recommended), or uncheck and specify one.
    - A note is optional but handy for telling machines apart.
 
@@ -105,7 +95,7 @@ When you type a target port, the protocol is chosen automatically:
 |-------------|----------------|--------------|
 | 443 / 8443 | https | `https://localhost:<port>` (open in browser) |
 | 80 / 8080 / 8000 | http | `http://localhost:<port>` (open in browser) |
-| 22 | ssh | `ssh <user>@localhost -p <port>` (copy command) |
+| 22 | ssh | `ssh -p <port> root@localhost` (copy command) |
 | 3306 | mysql | `mysql -h localhost -P <port> -u root -p` (copy command) |
 | 6379 | redis | `redis-cli -h localhost -p <port>` (copy command) |
 | 5432 | postgres | `psql -h localhost -p <port> -U postgres` (copy command) |
@@ -119,7 +109,9 @@ When you type a target port, the protocol is chosen automatically:
 
 All configuration (jump-host profiles, mapping list) is saved locally:
 
-- **Windows**: `C:\Users\<your-username>\.ssh_forward_tool\config.json`
+- **Windows**: `%APPDATA%\com.jumptunnel.app\config.json`
+
+> On first launch, config is imported automatically from the legacy path `~\.ssh_forward_tool\config.json` if it exists.
 
 ⚠️ **Security note**: the jump-host password is stored in **plaintext** in this file (so it can be auto-restored).
 Make sure the file isn't readable by others. If you'd rather not store it, clear the `password` field manually — but you'll need to re-enter the password each launch.
@@ -128,42 +120,49 @@ Make sure the file isn't readable by others. If you'd rather not store it, clear
 
 ## Build an exe (to distribute)
 
-The `build.spec` is already configured. Recommended via the uv environment:
-
 ```bash
-# 1. Prepare the environment (first time)
-uv sync
-
-# 2. Build
-uv run pyinstaller build.spec --noconfirm
+cd src-tauri
+cargo tauri build
 ```
 
-When done, the single-file exe is at:
+When done:
 
-```
-dist/JumpTunnel.exe
-```
+- **NSIS installer**: `src-tauri/target/release/bundle/nsis/JumpTunnel_0.3.0_x64-setup.exe` (~2 MB)
+- **Portable exe**: `src-tauri/target/release/jumptunnel.exe` (~5 MB)
 
-About 15MB — **copy it to anyone and they can double-click to run it, no Python needed**.
-
-You can also just double-click `build.bat` in the project to do all of the above in one go.
+Copy it to anyone and they can double-click to run it — no runtime needed (Windows 10 1803+ / Windows 11 ship with WebView2).
 
 ---
 
 ## Project structure
 
 ```
-src/jumptunnel/          # source package
-├── __main__.py          # enables `python -m jumptunnel`
-├── main.py              # GUI and entry point
-├── tunnel_manager.py    # SSH tunnel wrapper (built on sshtunnel)
-└── config_store.py      # local storage for profiles and mappings
-pyproject.toml           # uv / dependencies and build config
-requirements.txt         # dependency list for traditional pip
-build.spec               # PyInstaller build config
-run.bat                  # Windows one-click launcher
-build.bat                # Windows one-click build script
-docs/preview.png         # product screenshot
+src-tauri/               # Rust backend (Tauri 2)
+├── src/
+│   ├── main.rs          # entry point
+│   ├── lib.rs           # app assembly: window, plugins, command registration, exit cleanup
+│   ├── commands.rs      # all #[tauri::command] (IPC entry points)
+│   ├── config.rs        # config read/write + legacy migration
+│   ├── events.rs        # frontend event definitions
+│   └── tunnel/
+│       ├── mod.rs       # TunnelManager: tunnel state machine & lifecycle
+│       └── forward.rs   # russh: connect, auth, local forwarding loop
+├── tauri.conf.json      # window, icon, bundling config
+├── capabilities/        # permission declarations
+└── Cargo.toml
+
+frontend/                # frontend (React 18 + TypeScript + Vite + Tailwind)
+├── src/
+│   ├── App.tsx          # main layout + event subscriptions
+│   ├── components/      # JumphostPanel / MappingForm / MappingRow / LogPanel
+│   ├── stores.ts        # zustand global state
+│   ├── ipc.ts           # invoke wrappers & types
+│   └── lib.ts           # protocol detection & connection command templates
+└── package.json
+
+dev-frontend.mjs         # cross-platform frontend dev server launcher
+build-frontend.mjs       # cross-platform frontend build
+docs/tauri-refactor-plan.md  # refactor plan
 ```
 
 ---
@@ -180,16 +179,19 @@ A: Check "Auto port" to let the system allocate one, or pick a free port number.
 A: Make sure the target IP and port are actually reachable from the jump host (SSH in and ping/curl it).
 
 **Q: It's a non-web port like SSH — how do I use it?**
-A: Click "Copy" to get the connection command (e.g. `ssh root@localhost -p 10022`), then paste it into a terminal.
+A: Click "Copy" to get the connection command (e.g. `ssh -p 10022 root@localhost`), then paste it into a terminal.
 
 ---
 
 ## Technical notes
 
-- GUI built with Python + [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter).
-- SSH password login and port forwarding done in code via [sshtunnel](https://github.com/pahaz/sshtunnel) (on top of paramiko).
-  Windows' built-in `ssh.exe` doesn't accept a plaintext password on the command line and this machine has no `plink`, so a library approach is used for reliable password auth.
-- Auto port allocation works by binding local port `0`, letting the OS assign a free port; the actual port is read back after the tunnel starts.
+- **Backend**: Rust + [Tauri 2](https://tauri.app/). The SSH tunnel is implemented in-process with [russh](https://github.com/russh/russh) (pure Rust + tokio async) for password auth and port forwarding.
+  Windows' built-in `ssh.exe` doesn't accept a plaintext password on the command line, so a library approach is used for reliable password auth.
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS. Dark theme, modern card-style UI.
+- **Architecture**: the Rust backend is the single source of truth. Each mapping runs in its own tokio task with a state machine (`Stopped → Connecting → Running → Error`); state changes and logs are pushed to the frontend via Tauri events, and the frontend only renders.
+- **Auto port allocation** works by binding local port `0`, letting the OS assign a free port; the actual port is read back after the tunnel starts.
+- **Single instance**: `tauri-plugin-single-instance` prevents double-launches from stealing ports.
+- **Exit cleanup**: closing the main window stops all tunnels automatically.
 
 ---
 

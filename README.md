@@ -41,9 +41,10 @@ ssh -N -L 10011:172.17.12.22:443 tj
 | 🔌 **一键建立转发** | 填好跳板机和目标，点「启动」即可，密码自动登录，无需手动输命令。 |
 | 🔢 **自动分配端口** | 本地端口可以让系统自动分配（避免冲突），也可以手动指定。 |
 | 🌐 **Web 端口**（http/https） | 映射后生成可点击的本地 URL，点一下就在浏览器打开。 |
-| 🖥️ **非 Web 端口**（ssh/mysql/redis…） | 自动生成对应的连接命令（如 `ssh root@localhost -p 10022`），一键复制到剪贴板。 |
+| 🖥️ **非 Web 端口**（ssh/mysql/redis…） | 自动生成对应的连接命令（如 `ssh -p 10022 root@localhost`），一键复制到剪贴板。 |
+| 🧑‍💻 **目标登录用户** | 每条映射可以单独指定登录用户名（默认 `root`），SSH 连接命令自动带上。 |
 | 💾 **跳板机档案** | 把常用的跳板机存成档案，下拉框切换，不用每次重填。 |
-| 📋 **多映射管理** | 每条映射独立启停，状态指示灯一目了然（🟢运行 / ⚪停止 / 🔴出错）。 |
+| 📋 **多映射管理** | 每条映射独立启停，状态指示灯一目了然（🟢运行 / ⚪停止 / 🔴出错）；活动映射会显示经由哪台跳板机（`via 用户@主机:端口`）。 |
 | 🔄 **配置持久化** | 重启程序后自动恢复你上次的跳板机和映射列表。 |
 
 ---
@@ -52,7 +53,7 @@ ssh -N -L 10011:172.17.12.22:443 tj
 
 ### 方式一：直接用打包好的 exe（最省事，无需装任何东西）
 
-拿到 `JumpTunnel.exe`（或 NSIS 安装包 `JumpTunnel_0.2.0_x64-setup.exe`），**双击运行**即可。
+拿到 `JumpTunnel.exe`（或 NSIS 安装包 `JumpTunnel_0.3.0_x64-setup.exe`），**双击运行**即可。
 
 > 首次启动约 0.5 秒，无需解压。
 
@@ -75,7 +76,7 @@ cargo tauri dev
    不确定能不能连？先点「测试连接」验证一下。
 
 2. **添加映射**
-   在「新增映射」区填：目标 IP、目标端口（协议会自动推断），点「＋ 添加映射」。
+   在「新增映射」区填：目标 IP、目标端口（协议会自动推断）、登录用户名（默认 `root`），点「＋ 添加映射」。
    - 本地端口勾选「自动端口」由系统分配（推荐），或取消勾选后手动指定。
    - 备注可选，方便你区分这是哪台机器。
 
@@ -94,7 +95,7 @@ cargo tauri dev
 |---------|------------|------------|
 | 443 / 8443 | https | `https://localhost:端口`（浏览器打开） |
 | 80 / 8080 / 8000 | http | `http://localhost:端口`（浏览器打开） |
-| 22 | ssh | `ssh 用户名@localhost -p 端口`（复制命令） |
+| 22 | ssh | `ssh -p 端口 root@localhost`（复制命令） |
 | 3306 | mysql | `mysql -h localhost -P 端口 -u root -p`（复制命令） |
 | 6379 | redis | `redis-cli -h localhost -p 端口`（复制命令） |
 | 5432 | postgres | `psql -h localhost -p 端口 -U postgres`（复制命令） |
@@ -126,7 +127,7 @@ cargo tauri build
 
 打包完成后：
 
-- **NSIS 安装包**：`src-tauri/target/release/bundle/nsis/JumpTunnel_0.2.0_x64-setup.exe`（约 2 MB）
+- **NSIS 安装包**：`src-tauri/target/release/bundle/nsis/JumpTunnel_0.3.0_x64-setup.exe`（约 2 MB）
 - **免安装 exe**：`src-tauri/target/release/jumptunnel.exe`（约 5 MB）
 
 拷给别人双击即可运行，对方无需安装任何运行时（Windows 10 1803+ / Windows 11 自带 WebView2）。
@@ -178,7 +179,7 @@ A：勾选「自动端口」让系统分配，或换一个没被占用的端口�
 A：确认目标 IP 和端口从跳板机上确实可达（SSH 登录跳板机后 ping 或 curl 一下）。
 
 **Q：映射的是 SSH 等非 Web 端口，怎么用？**
-A：点「复制」拿到连接命令（比如 `ssh root@localhost -p 10022`），粘贴到终端执行。
+A：点「复制」拿到连接命令（比如 `ssh -p 10022 root@localhost`），粘贴到终端执行。
 
 ---
 

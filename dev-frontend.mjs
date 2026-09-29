@@ -1,8 +1,9 @@
 // 跨平台启动前端 dev server（供 tauri.conf.json 的 beforeDevCommand 调用）
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = path.dirname(process.argv[1])
+const root = path.dirname(fileURLToPath(import.meta.url))
 const frontend = path.join(root, 'frontend')
 
 const isWin = process.platform === 'win32'

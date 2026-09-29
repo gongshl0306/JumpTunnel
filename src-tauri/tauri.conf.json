@@ -4,9 +4,9 @@
   "version": "0.3.0",
   "identifier": "com.jumptunnel.app",
   "build": {
-    "beforeDevCommand": "node C:/Users/gsl15/ZCodeProject/dev-frontend.mjs",
+    "beforeDevCommand": "node dev-frontend.mjs",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "node C:/Users/gsl15/ZCodeProject/build-frontend.mjs",
+    "beforeBuildCommand": "node build-frontend.mjs",
     "frontendDist": "../frontend/dist"
   },
   "app": {
